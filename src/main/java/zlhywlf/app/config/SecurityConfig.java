@@ -3,29 +3,22 @@ package zlhywlf.app.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
 import org.springframework.context.annotation.Bean;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.http.*;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
-import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import zlhywlf.app.config.jwt.IJwtProvider;
+import zlhywlf.app.config.jwt.JwtFilter;
 
 
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Collection;
 
@@ -38,18 +31,30 @@ import static org.springframework.security.config.Customizer.withDefaults;
 @AllArgsConstructor
 public class SecurityConfig {
 
-    JwtUtil jwtUtil;
+    private IJwtProvider jwt;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http.authorizeHttpRequests(con -> con.anyRequest().authenticated())
+        http.authorizeHttpRequests(con -> con.antMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .antMatchers("/",
+                                "/*.html",
+                                "/favicon.ico",
+                                "/**/*.html",
+                                "/**/*.css",
+                                "/**/*.js",
+                                "/h2-console/**").permitAll()
+                        .anyRequest().authenticated())
                 .httpBasic(withDefaults())
                 .formLogin(con -> con
                         .successHandler((request, response, authentication) -> {
                             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                             PrintWriter out = response.getWriter();
                             Object principal = authentication.getPrincipal();
-                            out.write(new ObjectMapper().writeValueAsString(ResponseEntity.ok(principal)));
+                            String token = jwt.createToken(((UserDetails) principal).getUsername());
+                            HttpHeaders httpHeaders = new HttpHeaders();
+                            httpHeaders.add(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+                            response.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+                            out.write(new ObjectMapper().writeValueAsString(new ResponseEntity<>("token", httpHeaders, HttpStatus.OK)));
                             out.flush();
                             out.close();
                         })
@@ -63,16 +68,28 @@ public class SecurityConfig {
                             out.write(builder.toString());
                             out.flush();
                             out.close();
-                        })
-                        .loginProcessingUrl("/doLogin")
-                        .permitAll())
+                        }))
                 .logout(con -> con.logoutSuccessHandler((request, response, authentication) -> {
 
                         })
-                        .permitAll());
-
-        //        http.sessionManagement(AbstractHttpConfigurer::disable).addFilterBefore(jwtFilter(), UsernamePasswordAuthenticationFilter.class);
+                        .permitAll())
+                .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(con -> con.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .headers(con -> con.frameOptions().sameOrigin())
+                .cors(con -> con.configurationSource(corsFilter()))
+                .addFilterBefore(new JwtFilter(userDetailsService(), jwt), UsernamePasswordAuthenticationFilter.class)
+        ;
+//        http.exceptionHandling(con -> con.authenticationEntryPoint((request, response, authException) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED, authException.getMessage()))
+//                .accessDeniedHandler((request, response, accessDeniedException) -> response.sendError(HttpServletResponse.SC_FORBIDDEN, accessDeniedException.getMessage())));
         return http.build();
+    }
+
+    public UrlBasedCorsConfigurationSource corsFilter() {
+        // 跨域测试 打开任意网页在该网页控制台中执行
+        // var xhr = new XMLHttpRequest();xhr.open('GET','http://localhost:8080/login');xhr.send(null);xhr.onload=function(e){console.log(e.target.responseText);}
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/login/**", new CorsConfiguration().applyPermitDefaultValues());
+        return source;
     }
 
     @Bean
@@ -112,33 +129,6 @@ public class SecurityConfig {
             @Override
             public boolean isEnabled() {
                 return true;
-            }
-        };
-    }
-
-
-    @Bean
-    public Filter jwtFilter() {
-        return new OncePerRequestFilter() {
-            @Override
-            protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-//                String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-//                String username=null;
-//                String jwt=null;
-//                if (authorizationHeader !=null && authorizationHeader.startsWith("Bearer ")){
-//                    jwt =  authorizationHeader.substring(7);
-//                    username=jwtUtil.extractUsername(jwt);
-//                }
-//                if (username!=null && SecurityContextHolder.getContext().getAuthentication()==null){
-//                    UserDetails userDetails = userDetailsService().loadUserByUsername(username);
-//                    if (jwtUtil.validateToken(jwt,userDetails.getUsername())){
-//                        UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-//                        usernamePasswordAuthenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-//                        SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
-//                    }
-//                }
-                System.out.println("===============");
-                filterChain.doFilter(request, response);
             }
         };
     }

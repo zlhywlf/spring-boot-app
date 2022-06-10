@@ -1,0 +1,13 @@
+{
+  "properties": [
+    {
+      "name": "jwt.base64-secret",
+      "type": "java.lang.String",
+      "description": "sd."
+    },
+    {
+      "name": "jwt.token-validity",
+      "type": "java.lang.String",
+      "description": "123."
+    }
+  ] }
