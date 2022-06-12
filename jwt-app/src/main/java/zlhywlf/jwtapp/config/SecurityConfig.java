@@ -1,4 +1,4 @@
-package zlhywlf.app.config;
+package zlhywlf.jwtapp.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
@@ -15,8 +15,8 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import zlhywlf.app.config.jwt.IJwtProvider;
-import zlhywlf.app.config.jwt.JwtFilter;
+import zlhywlf.jwtapp.config.jwt.IJwtProvider;
+import zlhywlf.jwtapp.config.jwt.JwtFilter;
 
 
 import java.io.PrintWriter;

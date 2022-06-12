@@ -1,4 +1,4 @@
-package zlhywlf.app.config.jwt;
+package zlhywlf.jwtapp.config.jwt;
 
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpHeaders;
